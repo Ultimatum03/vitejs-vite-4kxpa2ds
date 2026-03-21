@@ -230,7 +230,11 @@ export default function GacAdigbeMedia() {
       setAuthUser(u);
       if (u) {
         const snap = await getDoc(doc(db, COLS.users, u.uid));
-        if (snap.exists()) setUserProfile(snap.data());
+        if (snap.exists()) {
+          setUserProfile({ id: u.uid, ...snap.data() });
+        } else {
+          setUserProfile({ id: u.uid, name: u.email, role: "member", avatar: "#F0B429" });
+        }
       } else {
         setUserProfile(null);
       }
@@ -702,13 +706,24 @@ function IdeasPage({ state, user, fns }) {
     setLoad("scoreIdea", true);
     const score = await ai.scoreIdea(form);
     setLoad("scoreIdea", false);
-    await addDoc(collection(db, COLS.ideas), {
-      ...form, by: user.id, byName: user.name, status: "pending",
-      score: score?.score || null, aiFeedback: score?.feedback || null,
-      aiTip: score?.improvement || null, virality: score?.virality || null,
-      submittedAt: today(), createdAt: serverTimestamp(),
-    });
-    await addNotification(`New idea submitted: "${form.title}" by ${user.name}`, "idea");
+    try {
+      await addDoc(collection(db, COLS.ideas), {
+        ...form,
+        by: user?.id || "unknown",
+        byName: user?.name || "Unknown",
+        status: "pending",
+        score: score?.score || null,
+        aiFeedback: score?.feedback || null,
+        aiTip: score?.improvement || null,
+        virality: score?.virality || null,
+        submittedAt: today(),
+      });
+      await addNotification(`New idea submitted: "${form.title}" by ${user.name}`, "idea");
+    } catch(e) {
+      console.error("Idea error:", e);
+      toast("Error: " + e.message, "error");
+      return;
+    }
     setModal(false); setForm({ title: "", service: "Sunday", type: "Video / Reel", platform: "Instagram", desc: "", day: "Sunday" });
     toast("Idea submitted! AI scored it.");
   };
@@ -1343,9 +1358,24 @@ function PerformancePage({ state, user, fns }) {
         <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-end" }}>
           <Btn onClick={async () => {
             if (!form.title) { toast("Enter post title.", "error"); return; }
-            await addDoc(collection(db, COLS.performance), { ...form, reach: parseInt(form.reach) || 0, likes: parseInt(form.likes) || 0, shares: parseInt(form.shares) || 0, comments: parseInt(form.comments) || 0, by: user.id, byName: user.name, date: today(), createdAt: serverTimestamp() });
-            setModal(false); setForm({ title: "", platform: "Instagram", reach: 0, likes: 0, shares: 0, comments: 0 });
-            toast("Performance logged!");
+            try {
+              await addDoc(collection(db, COLS.performance), {
+                ...form,
+                reach: parseInt(form.reach) || 0,
+                likes: parseInt(form.likes) || 0,
+                shares: parseInt(form.shares) || 0,
+                comments: parseInt(form.comments) || 0,
+                by: user?.id || "unknown",
+                byName: user?.name || "Unknown",
+                date: today(),
+              });
+              setModal(false);
+              setForm({ title: "", platform: "Instagram", reach: 0, likes: 0, shares: 0, comments: 0 });
+              toast("Performance logged!");
+            } catch(e) {
+              console.error("Perf error:", e);
+              toast("Error saving: " + e.message, "error");
+            }
           }}>Log Data</Btn>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancel</Btn>
         </div>
@@ -1421,9 +1451,21 @@ function ContentHubPage({ state, user, fns }) {
         <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-end" }}>
           <Btn onClick={async () => {
             if (!form.title) { toast("Enter a title.", "error"); return; }
-            await addDoc(collection(db, COLS.contentFiles), { ...form, uploadedBy: user.id, uploadedByName: user.name, uploadedAt: today(), createdAt: serverTimestamp() });
-            setModal(false); setForm({ title: "", desc: "", type: "Graphic", service: "Sunday", platform: "Instagram" });
-            toast("Content added to hub!");
+            try {
+              const docRef = await addDoc(collection(db, COLS.contentFiles), {
+                ...form,
+                uploadedBy: user?.id || "unknown",
+                uploadedByName: user?.name || "Unknown",
+                uploadedAt: today(),
+              });
+              console.log("Content saved:", docRef.id);
+              setModal(false);
+              setForm({ title: "", desc: "", type: "Graphic", service: "Sunday", platform: "Instagram" });
+              toast("Content added to hub!");
+            } catch(e) {
+              console.error("Save error:", e);
+              toast("Error: " + e.message, "error");
+            }
           }}>Add to Hub</Btn>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancel</Btn>
         </div>
