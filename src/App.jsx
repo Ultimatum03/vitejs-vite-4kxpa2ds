@@ -6,7 +6,7 @@ import {
 } from "firebase/auth";
 import {
   getFirestore, collection, doc, setDoc, getDoc, getDocs,
-  addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy
+  addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp
 } from "firebase/firestore";
 
 /* ═══════════════════════════════════════════════════════════
@@ -244,13 +244,13 @@ export default function GacAdigbeMedia() {
     if (!authUser) return;
     const unsubs = [
       onSnapshot(collection(db, COLS.users), s => setUsers(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.ideas), orderBy("submittedAt", "desc")), s => setIdeas(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.tasks), orderBy("createdAt", "desc")), s => setTasks(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.ideas), s => setIdeas(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.tasks), s => setTasks(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, COLS.equipment), s => setEquipment(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.equipLog), orderBy("at", "desc")), s => setEquipLog(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.performance), orderBy("date", "desc")), s => setPerformance(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.notifications), orderBy("at", "desc")), s => setNotifications(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, COLS.contentFiles), orderBy("uploadedAt", "desc")), s => setContentFiles(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.equipLog), s => setEquipLog(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.performance), s => setPerformance(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.notifications), s => setNotifications(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(collection(db, COLS.contentFiles), s => setContentFiles(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, COLS.checklists), s => {
         const cl = { sunday: [], midweek: [] };
         s.docs.forEach(d => { const data = d.data(); if (cl[data.type]) cl[data.type].push({ id: d.id, ...data }); });
