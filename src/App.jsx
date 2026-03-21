@@ -29,12 +29,19 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── AI Backend ──
+const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
 const ai = {
   call: async (system, message, parseJSON = true) => {
+    if (!ANTHROPIC_KEY) { console.warn("No API key"); return null; }
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-allow-browser": "true",
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514", max_tokens: 1000,
           system, messages: [{ role: "user", content: message }]
