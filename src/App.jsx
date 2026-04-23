@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 
 /* ═══════════════════════════════════════════════════════════
-   GACADIGBEMEDIA — CHURCH MEDIA DEPARTMENT SYSTEM
+   FAITHCONNECT — CHURCH MEDIA DEPARTMENT SYSTEM
    Firebase Backend · Real-time · Multi-device · Production Ready
    ═══════════════════════════════════════════════════════════ */
 
@@ -29,28 +29,31 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── AI Backend ──
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
+const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
 if (import.meta.env.DEV) {
-  console.log("VITE_ANTHROPIC_KEY present?", !!import.meta.env.VITE_ANTHROPIC_KEY);
+  console.log("VITE_OPENAI_KEY present?", !!import.meta.env.VITE_OPENAI_KEY);
 }
 const ai = {
   call: async (system, message, parseJSON = true) => {
-    if (!ANTHROPIC_KEY) {
-      console.warn("⚠️ No Anthropic API key configured. Set VITE_ANTHROPIC_KEY in .env.local");
+    if (!OPENAI_KEY) {
+      console.warn("⚠️ No OpenAI API key configured. Set VITE_OPENAI_KEY in .env.local");
       return null;
     }
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-allow-browser": "true",
+          "Authorization": `Bearer ${OPENAI_KEY}`,
         },
         body: JSON.stringify({
-          model: "claude-3-5-sonnet-20241022", max_tokens: 1000,
-          system, messages: [{ role: "user", content: message }]
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: message }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7
         })
       });
       if (!res.ok) {
@@ -59,10 +62,10 @@ const ai = {
       }
       const data = await res.json();
       if (data.error) {
-        console.error("AI Error:", data.error);
+        console.error("OpenAI Error:", data.error);
         return null;
       }
-      const text = data.content?.map(b => b.text || "").join("") || "";
+      const text = data.choices?.[0]?.message?.content || "";
       if (!parseJSON) return text;
       return JSON.parse(text.replace(/```json|```/g, "").trim());
     } catch (e) {
@@ -204,7 +207,7 @@ const Btn = ({ children, variant = "gold", onClick, style, disabled, size }) => 
 // ══════════════════════════════════════════
 //  MAIN APP
 // ══════════════════════════════════════════
-export default function GacAdigbeMedia() {
+export default function FaithConnect() {
   const [authUser, setAuthUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [page, setPage] = useState("dashboard");
@@ -336,7 +339,7 @@ export default function GacAdigbeMedia() {
   if (appLoading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0A0C14", color: "#F0B429", fontFamily: "'Syne',sans-serif", fontSize: "1.2rem" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&display=swap');`}</style>
-      ✦ Loading GacAdigbeMedia…
+      ✦ Loading FaithConnect…
     </div>
   );
 
@@ -375,9 +378,12 @@ export default function GacAdigbeMedia() {
 
       {/* SIDEBAR */}
       <aside style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 220, background: "#111420", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", zIndex: 50, padding: "20px 0" }}>
-        <div style={{ padding: "0 18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 800, color: "#F0B429" }}>✦ GacAdigbeMedia</div>
-          <div style={{ fontSize: "0.68rem", color: "#6B7280", marginTop: 2 }}>GAC Adigbe Media Department</div>
+        <div style={{ padding: "0 18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/faithconnect-logo.svg" alt="FaithConnect logo" style={{ width: 40, height: 40, borderRadius: 999, background: "#0A0C14" }} />
+          <div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 800, color: "#F0B429" }}>FaithConnect</div>
+            <div style={{ fontSize: "0.68rem", color: "#6B7280", marginTop: 2 }}>FaithConnect Media Department</div>
+          </div>
         </div>
         <nav style={{ flex: 1, overflowY: "auto" }}>
           {navItems.map(item => (
@@ -526,9 +532,9 @@ function LoginPage({ auth, db, toast }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 25% 25%,rgba(79,142,247,0.1) 0%,transparent 55%),radial-gradient(ellipse at 80% 80%,rgba(240,180,41,0.07) 0%,transparent 55%),#0A0C14", fontFamily: "'Instrument Sans',sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&display=swap');`}</style>
       <div style={{ background: "#111420", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 20, padding: "48px 44px", width: "100%", maxWidth: 420, textAlign: "center", boxShadow: "0 40px 80px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>✦</div>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.9rem", fontWeight: 800, color: "#F0B429" }}>GacAdigbeMedia</h1>
-        <div style={{ color: "#9CA3AF", fontSize: "0.83rem", marginBottom: 32 }}>GAC Adigbe Media Department</div>
+<img src="/faithconnect-logo.svg" alt="FaithConnect logo" style={{ width: 72, height: 72, borderRadius: 999, marginBottom: 16, background: "#0A0C14" }} />
+        <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.9rem", fontWeight: 800, color: "#F0B429" }}>FaithConnect</h1>
+        <div style={{ color: "#9CA3AF", fontSize: "0.83rem", marginBottom: 32 }}>FaithConnect Media Department</div>
 
         {!setupMode ? (
           <>
@@ -752,7 +758,7 @@ function IdeasPage({ state, user, fns }) {
   const [form, setForm] = useState({ title: "", service: "Sunday", type: "Video / Reel", platform: "Instagram", desc: "", day: "Sunday" });
   const { ai, toast, setLoad, loading, db, addNotification } = fns;
   const isAdmin = user.role === "admin";
-  const hasApiKey = import.meta.env.VITE_ANTHROPIC_KEY ? true : false;
+  const hasApiKey = import.meta.env.VITE_OPENAI_KEY ? true : false;
 
   const filtered = state.ideas.filter(i => {
     if (filter === "mine") return i.by === user.id;
@@ -801,7 +807,7 @@ function IdeasPage({ state, user, fns }) {
 
   const generateCaption = async (idea) => {
     if (!hasApiKey) {
-      toast("AI feature not configured. Set VITE_ANTHROPIC_KEY in .env.local", "error");
+      toast("AI feature not configured. Set VITE_OPENAI_KEY in .env.local", "error");
       return;
     }
     setCaptionModal(idea); setCaptionResult(null);
@@ -843,13 +849,13 @@ function IdeasPage({ state, user, fns }) {
           <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginTop: 4 }}>Submit, score and track all content ideas. Updates live for the whole team.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="blue" onClick={() => setSuggestModal(true)} disabled={!hasApiKey} title={!hasApiKey ? "Set VITE_ANTHROPIC_KEY in .env.local" : ""}>✦ AI Suggest</Btn>
+          <Btn variant="blue" onClick={() => setSuggestModal(true)} disabled={!hasApiKey} title={!hasApiKey ? "Set VITE_OPENAI_KEY in .env.local" : ""}>✦ AI Suggest</Btn>
           <Btn onClick={() => setModal(true)}>+ Submit Idea</Btn>
         </div>
       </div>
       {!hasApiKey && (
         <div style={{ background: "rgba(240,115,50,0.1)", border: "1px solid rgba(240,115,50,0.3)", borderRadius: 10, padding: 14, marginBottom: 20, fontSize: "0.84rem", color: "#FB923C" }}>
-          <strong>⚠️ AI features unavailable:</strong> Add your Anthropic API key to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>.env.local</code> to enable AI features. <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#FB923C" }}>Get API key →</a>
+          <strong>⚠️ AI features unavailable:</strong> Add your OpenAI API key to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>.env.local</code> to enable AI features. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" style={{ color: "#FB923C" }}>Get API key →</a>
         </div>
       )}
 
@@ -922,7 +928,7 @@ function IdeasPage({ state, user, fns }) {
       <Modal open={suggestModal} onClose={() => setSuggestModal(false)} title="✦ AI Idea Generator">
         {!hasApiKey && (
           <div style={{ background: "rgba(240,115,50,0.1)", border: "1px solid rgba(240,115,50,0.3)", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: "0.83rem", color: "#FB923C" }}>
-            ⚠️ AI feature not configured. Add <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>VITE_ANTHROPIC_KEY</code> to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>.env.local</code>
+            ⚠️ AI feature not configured. Add <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>VITE_OPENAI_KEY</code> to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>.env.local</code>
           </div>
         )}
         <Field label="Sermon / Study Theme" full><Input value={sermonTheme} onChange={e => setSermonTheme(e.target.value)} placeholder="e.g. Walking by Faith, The Power of Prayer…" disabled={!hasApiKey} /></Field>

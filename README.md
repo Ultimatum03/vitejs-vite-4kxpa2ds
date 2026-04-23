@@ -1,4 +1,4 @@
-# GacAdigbeMedia - Church Media Department System
+# FaithConnect - Church Media Department System
 
 A production-ready church media management system built with React, TypeScript, Vite, and Firebase.
 
@@ -28,11 +28,11 @@ A production-ready church media management system built with React, TypeScript, 
 npm install
 ```
 
-2. **Set up your Anthropic API key** for AI features (optional but recommended):
-   - Get an API key from [Anthropic Console](https://console.anthropic.com/)
+2. **Set up your OpenAI API key** for AI features (optional but recommended):
+   - Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
    - Create a `.env.local` file in the project root:
    ```
-   VITE_ANTHROPIC_KEY=your_anthropic_api_key_here
+   VITE_OPENAI_KEY=your_openai_api_key_here
    ```
    - See `.env.example` for reference
 
@@ -50,7 +50,7 @@ When you first log in:
 
 ## AI Features
 
-The following features require a valid `VITE_ANTHROPIC_KEY`:
+The following features require a valid `VITE_OPENAI_KEY`:
 
 - **AI Suggest** - Generate 4 content ideas from a sermon theme
 - **AI Caption Generator** - Create social media captions with hashtags and CTAs
@@ -71,13 +71,13 @@ npm run preview  # Preview production build
 
 - **Frontend**: React 19, TypeScript, Vite
 - **Backend**: Firebase (Auth, Firestore)
-- **AI**: Anthropic Claude API
+- **AI**: OpenAI GPT-4o-mini API
 - **Styling**: Inline CSS with custom design system
 - **Fonts**: Syne, Instrument Sans (Google Fonts)
 
 ---
 
-**GacAdigbeMedia** - Making church media management simple and powerful.
+**FaithConnect** - Making church media management simple and powerful.
 
 import reactDom from 'eslint-plugin-react-dom'
 
