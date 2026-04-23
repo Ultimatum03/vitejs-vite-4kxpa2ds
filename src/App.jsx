@@ -29,9 +29,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── AI Backend ──
-const OPENAI_KEY = import.meta.env.VITE_OPENAI_KEY || "";
+const OPENAI_KEY = (import.meta.env.VITE_OPENAI_KEY || "").replace(/^"|"$/g, "");
 if (import.meta.env.DEV) {
-  console.log("VITE_OPENAI_KEY present?", !!import.meta.env.VITE_OPENAI_KEY);
+  console.log("OPENAI_KEY loaded?", !!OPENAI_KEY, "length=", OPENAI_KEY.length);
 }
 const ai = {
   call: async (system, message, parseJSON = true) => {
@@ -758,7 +758,7 @@ function IdeasPage({ state, user, fns }) {
   const [form, setForm] = useState({ title: "", service: "Sunday", type: "Video / Reel", platform: "Instagram", desc: "", day: "Sunday" });
   const { ai, toast, setLoad, loading, db, addNotification } = fns;
   const isAdmin = user.role === "admin";
-  const hasApiKey = import.meta.env.VITE_OPENAI_KEY ? true : false;
+  const hasApiKey = !!OPENAI_KEY;
 
   const filtered = state.ideas.filter(i => {
     if (filter === "mine") return i.by === user.id;
@@ -1494,84 +1494,280 @@ function PerformancePage({ state, user, fns }) {
 // ══════════════════════════════════════════
 function ContentHubPage({ state, user, fns }) {
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ title: "", desc: "", type: "Graphic", service: "Sunday", platform: "Instagram" });
+  const [form, setForm] = useState({ title: "", desc: "", type: "Text", service: "Sunday", platform: "Instagram", content: "", file: null });
   const [search, setSearch] = useState("");
-  const { db, toast } = fns;
-  const { contentFiles, users } = state;
+  const [contentType, setContentType] = useState("text");
+  const { toast } = fns;
+  const fileInputRef = useRef(null);
 
-  const filtered = contentFiles.filter(f => f.title?.toLowerCase().includes(search.toLowerCase()));
-  const typeIcon = t => ({ "Video / Reel": "🎬", "Graphic": "🖼️", "Slides": "🖥️", "Photo": "📸", "Copywriting": "✍️", "Story": "📱" }[t] || "📄");
+  // Load content from localStorage
+  const [localContent, setLocalContent] = useState(() => {
+    try {
+      const saved = localStorage.getItem('faithconnect_content');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Error loading local content:', e);
+      return [];
+    }
+  });
+
+  // Save to localStorage whenever localContent changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('faithconnect_content', JSON.stringify(localContent));
+    } catch (e) {
+      console.error('Error saving local content:', e);
+    }
+  }, [localContent]);
+
+  const filtered = localContent.filter(f =>
+    f.title?.toLowerCase().includes(search.toLowerCase()) ||
+    f.desc?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const typeIcon = t => ({
+    "Text": "📝", "Video": "🎬", "File": "📎", "Image": "🖼️",
+    "Audio": "🎵", "Document": "📄"
+  }[t] || "📄");
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast("File too large. Maximum size is 50MB.", "error");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = {
+      text: ['text/plain', 'text/markdown', 'application/json'],
+      video: ['video/mp4', 'video/avi', 'video/mov', 'video/quicktime'],
+      file: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+      audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3']
+    };
+
+    if (!allowedTypes[contentType]?.includes(file.type)) {
+      toast(`Invalid file type for ${contentType} content.`, "error");
+      return;
+    }
+
+    setForm({ ...form, file });
+  };
+
+  const saveContent = async () => {
+    if (!form.title) {
+      toast("Enter a title.", "error");
+      return;
+    }
+
+    if (contentType === 'text' && !form.content.trim()) {
+      toast("Enter some text content.", "error");
+      return;
+    }
+
+    if (contentType !== 'text' && !form.file) {
+      toast("Select a file to upload.", "error");
+      return;
+    }
+
+    try {
+      let contentData = {
+        id: uid(),
+        title: form.title,
+        desc: form.desc,
+        type: contentType,
+        service: form.service,
+        platform: form.platform,
+        uploadedBy: user?.id || "unknown",
+        uploadedByName: user?.name || "Unknown",
+        uploadedAt: today(),
+        createdAt: new Date().toISOString()
+      };
+
+      if (contentType === 'text') {
+        contentData.content = form.content;
+      } else {
+        // Convert file to base64 for local storage
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          contentData.fileData = e.target.result;
+          contentData.fileName = form.file.name;
+          contentData.fileSize = form.file.size;
+          contentData.fileType = form.file.type;
+
+          setLocalContent(prev => [contentData, ...prev]);
+          setModal(false);
+          setForm({ title: "", desc: "", type: "Text", service: "Sunday", platform: "Instagram", content: "", file: null });
+          toast("Content saved locally!");
+        };
+        reader.readAsDataURL(form.file);
+        return;
+      }
+
+      setLocalContent(prev => [contentData, ...prev]);
+      setModal(false);
+      setForm({ title: "", desc: "", type: "Text", service: "Sunday", platform: "Instagram", content: "", file: null });
+      toast("Content saved locally!");
+
+    } catch(e) {
+      console.error("Save error:", e);
+      toast("Error: " + e.message, "error");
+    }
+  };
+
+  const deleteContent = (id) => {
+    setLocalContent(prev => prev.filter(item => item.id !== id));
+    toast("Content deleted.");
+  };
+
+  const downloadFile = (item) => {
+    if (item.fileData) {
+      const link = document.createElement('a');
+      link.href = item.fileData;
+      link.download = item.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.6rem", fontWeight: 800 }}>🗂️ Content Hub</h1>
-          <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginTop: 4 }}>Shared content library — upload and access files as a team.</p>
+          <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginTop: 4 }}>Local content library — store text, videos, and files securely on your device.</p>
         </div>
-        <Btn onClick={() => setModal(true)}>+ Upload Content</Btn>
+        <Btn onClick={() => setModal(true)}>+ Add Content</Btn>
       </div>
 
       <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search content…" style={{ maxWidth: 360, marginBottom: 20 }} />
 
       {filtered.length === 0
-        ? <div style={{ textAlign: "center", padding: 80, color: "#6B7280" }}><div style={{ fontSize: "3rem", marginBottom: 12 }}>🗂️</div><p>No content uploaded yet.</p></div>
-        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-          {filtered.map(item => {
-            const author = users.find(u => u.id === item.uploadedBy);
-            return (
-              <div key={item.id} style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(240,180,41,0.25)"}
-                onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"}>
-                <div style={{ height: 90, display: "flex", alignItems: "center", justifyContent: "center", background: "#111420", fontSize: "2.5rem" }}>{typeIcon(item.type)}</div>
-                <div style={{ padding: 16 }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{item.title}</div>
-                  {item.desc && <div style={{ fontSize: "0.79rem", color: "#9CA3AF", marginBottom: 10, lineHeight: 1.5 }}>{item.desc}</div>}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                    <Badge color="#4F8EF7">{item.type}</Badge>
-                    <Badge color="#6B7280">{item.service}</Badge>
-                    <Badge color="#A78BFA">{item.platform}</Badge>
+        ? <div style={{ textAlign: "center", padding: 80, color: "#6B7280" }}><div style={{ fontSize: "3rem", marginBottom: 12 }}>🗂️</div><p>No content saved yet.</p></div>
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 16 }}>
+          {filtered.map(item => (
+            <div key={item.id} style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(240,180,41,0.25)"}
+              onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"}>
+              <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "#111420", fontSize: "3rem" }}>
+                {item.type === 'text' ? (
+                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#9CA3AF" }}>
+                    {typeIcon(item.type)}
+                    <div style={{ fontSize: "0.7rem", marginTop: 4 }}>Text Content</div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.75rem", color: "#9CA3AF" }}>
-                    <Avatar user={author} size={18} />
-                    <span>{author?.name?.split(" ")[0]} · {item.uploadedAt}</span>
+                ) : item.fileType?.startsWith('image/') ? (
+                  <img src={item.fileData} alt={item.title} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} />
+                ) : item.fileType?.startsWith('video/') ? (
+                  <video style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }}>
+                    <source src={item.fileData} type={item.fileType} />
+                  </video>
+                ) : (
+                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#9CA3AF" }}>
+                    {typeIcon(item.type)}
+                    <div style={{ fontSize: "0.7rem", marginTop: 4 }}>{item.fileName?.split('.').pop().toUpperCase()}</div>
                   </div>
+                )}
+              </div>
+              <div style={{ padding: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{item.title}</div>
+                {item.desc && <div style={{ fontSize: "0.79rem", color: "#9CA3AF", marginBottom: 10, lineHeight: 1.5 }}>{item.desc}</div>}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  <Badge color="#4F8EF7">{item.type}</Badge>
+                  <Badge color="#6B7280">{item.service}</Badge>
+                  <Badge color="#A78BFA">{item.platform}</Badge>
+                  {item.fileSize && <Badge color="#10B981">{(item.fileSize / 1024 / 1024).toFixed(1)}MB</Badge>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.75rem", color: "#9CA3AF", marginBottom: 10 }}>
+                  <span>{item.uploadedByName} · {item.uploadedAt}</span>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {item.type !== 'text' && (
+                    <Btn size="xs" onClick={() => downloadFile(item)}>Download</Btn>
+                  )}
                   {(user.id === item.uploadedBy || user.role === "admin") && (
-                    <Btn size="xs" variant="red" style={{ marginTop: 10 }} onClick={async () => { await deleteDoc(doc(db, COLS.contentFiles, item.id)); toast("Deleted."); }}>Delete</Btn>
+                    <Btn size="xs" variant="red" onClick={() => deleteContent(item.id)}>Delete</Btn>
                   )}
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>}
 
-      <Modal open={modal} onClose={() => setModal(false)} title="🗂️ Upload Content">
+      <Modal open={modal} onClose={() => setModal(false)} title="🗂️ Add Content">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          <Field label="Title" full><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Sunday Sermon Slides Week 4" /></Field>
-          <Field label="Content Type"><Select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}><option>Graphic</option><option>Video / Reel</option><option>Slides</option><option>Photo</option><option>Copywriting</option><option>Story</option></Select></Field>
-          <Field label="Service"><Select value={form.service} onChange={e => setForm({ ...form, service: e.target.value })}><option>Sunday</option><option>Midweek</option><option>Both</option></Select></Field>
-          <Field label="Platform"><Select value={form.platform} onChange={e => setForm({ ...form, platform: e.target.value })}><option>Instagram</option><option>Facebook</option><option>TikTok</option><option>YouTube</option><option>WhatsApp</option><option>All Platforms</option></Select></Field>
-          <Field label="Description" full><Textarea value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} placeholder="Brief description…" /></Field>
+          <Field label="Content Type">
+            <Select value={contentType} onChange={e => {
+              setContentType(e.target.value);
+              setForm({ ...form, file: null });
+            }}>
+              <option value="text">Text</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+              <option value="file">Document/File</option>
+            </Select>
+          </Field>
+          <Field label="Title" full>
+            <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Sunday Sermon Notes" />
+          </Field>
+          <Field label="Service">
+            <Select value={form.service} onChange={e => setForm({ ...form, service: e.target.value })}>
+              <option>Sunday</option><option>Midweek</option><option>Both</option>
+            </Select>
+          </Field>
+          <Field label="Platform">
+            <Select value={form.platform} onChange={e => setForm({ ...form, platform: e.target.value })}>
+              <option>Instagram</option><option>Facebook</option><option>TikTok</option><option>YouTube</option><option>WhatsApp</option><option>All Platforms</option>
+            </Select>
+          </Field>
+
+          {contentType === 'text' ? (
+            <Field label="Text Content" full>
+              <Textarea
+                value={form.content}
+                onChange={e => setForm({ ...form, content: e.target.value })}
+                placeholder="Enter your text content here..."
+                style={{ minHeight: 120 }}
+              />
+            </Field>
+          ) : (
+            <Field label={`Upload ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`} full>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={
+                    contentType === 'image' ? 'image/*' :
+                    contentType === 'video' ? 'video/*' :
+                    contentType === 'audio' ? 'audio/*' :
+                    '.pdf,.doc,.docx,.xls,.xlsx,.txt,.md'
+                  }
+                  onChange={handleFileSelect}
+                  style={{ display: "none" }}
+                />
+                <Btn onClick={() => fileInputRef.current?.click()}>
+                  {form.file ? `✓ ${form.file.name}` : `Choose ${contentType} file`}
+                </Btn>
+                {form.file && (
+                  <span style={{ fontSize: "0.8rem", color: "#9CA3AF" }}>
+                    {(form.file.size / 1024 / 1024).toFixed(1)}MB
+                  </span>
+                )}
+              </div>
+            </Field>
+          )}
+
+          <Field label="Description" full>
+            <Textarea value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} placeholder="Brief description…" />
+          </Field>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-end" }}>
-          <Btn onClick={async () => {
-            if (!form.title) { toast("Enter a title.", "error"); return; }
-            try {
-              const docRef = await addDoc(collection(db, COLS.contentFiles), {
-                ...form,
-                uploadedBy: user?.id || "unknown",
-                uploadedByName: user?.name || "Unknown",
-                uploadedAt: today(),
-              });
-              console.log("Content saved:", docRef.id);
-              setModal(false);
-              setForm({ title: "", desc: "", type: "Graphic", service: "Sunday", platform: "Instagram" });
-              toast("Content added to hub!");
-            } catch(e) {
-              console.error("Save error:", e);
-              toast("Error: " + e.message, "error");
-            }
-          }}>Add to Hub</Btn>
+          <Btn onClick={saveContent}>Save Locally</Btn>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancel</Btn>
         </div>
       </Modal>
