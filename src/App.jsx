@@ -99,8 +99,17 @@ const ai = {
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const today = () => new Date().toISOString().split("T")[0];
 const nowStr = () => new Date().toLocaleString("en-GB").slice(0, 16);
-const statusColor = s => ({ "Done": "#3DD68C", "In Progress": "#4F8EF7", "Not Started": "#6B7280", "In Review": "#F0B429" }[s] || "#6B7280");
-const condColor = c => ({ "Good": "#3DD68C", "Fair": "#F0B429", "Needs Repair": "#F05252" }[c] || "#6B7280");
+const statusColor = s => ({
+  "Done": "#3DD68C",
+  "In Progress": "#F0B429",
+  "Not Started": "#6B7280",
+  "In Review": "#EEF0F8"
+}[s] || "#6B7280");
+const condColor = c => ({
+  "Good": "#3DD68C",
+  "Fair": "#F0B429",
+  "Needs Repair": "#F05252"
+}[c] || "#6B7280");
 
 // ── Default team accounts (auto-created on first run) ──
 // Admin account created during first setup
@@ -125,7 +134,7 @@ const Avatar = ({ user, size = 32 }) => (
   </div>
 );
 
-const Badge = ({ children, color = "#6B7280" }) => (
+const Badge = ({ children, color = "#4F8EF7" }) => (
   <span style={{
     display: "inline-block", padding: "2px 9px", borderRadius: 20,
     fontSize: "0.71rem", fontWeight: 600, background: color + "22", color,
@@ -157,14 +166,14 @@ const Modal = ({ open, onClose, title, children, width = 520 }) => {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{
-        background: "#181C2E", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 18,
+      <div className="modal-mobile" style={{
+        background: "#1E2338", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 18,
         padding: 32, width: "100%", maxWidth: width, maxHeight: "90vh", overflowY: "auto",
         animation: "popIn 0.2s ease",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
           <h3 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.15rem", fontWeight: 700 }}>{title}</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "1.1rem" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: "1.1rem" }}>✕</button>
         </div>
         {children}
       </div>
@@ -179,22 +188,30 @@ const Field = ({ label, children, full }) => (
   </div>
 );
 
-const inputStyle = { width: "100%", background: "#242840", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "9px 12px", color: "#EEF0F8", fontFamily: "'Instrument Sans',sans-serif", fontSize: "0.87rem", outline: "none" };
+const inputStyle = {
+  width: "100%",
+  background: "#1E2338",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 8,
+  padding: "9px 12px",
+  color: "#EEF0F8",
+  fontFamily: "'Instrument Sans',sans-serif",
+  fontSize: "0.87rem",
+  outline: "none"
+};
 const Input = (props) => <input {...props} style={{ ...inputStyle, ...props.style }} />;
 const Select = ({ children, ...props }) => <select {...props} style={{ ...inputStyle, cursor: "pointer", ...props.style }}>{children}</select>;
 const Textarea = (props) => <textarea {...props} style={{ ...inputStyle, resize: "vertical", minHeight: 80, ...props.style }} />;
 
-const Btn = ({ children, variant = "gold", onClick, style, disabled, size }) => {
+const Btn = ({ children, variant = "orange", onClick, style, disabled, size }) => {
   const v = {
-    gold: { bg: "rgba(240,180,41,0.15)", border: "rgba(240,180,41,0.3)", color: "#F0B429" },
-    green: { bg: "rgba(61,214,140,0.12)", border: "rgba(61,214,140,0.25)", color: "#3DD68C" },
-    red: { bg: "rgba(240,82,82,0.1)", border: "rgba(240,82,82,0.25)", color: "#F05252" },
-    blue: { bg: "rgba(79,142,247,0.12)", border: "rgba(79,142,247,0.25)", color: "#4F8EF7" },
-    purple: { bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.25)", color: "#A78BFA" },
+    orange: { bg: "rgba(240,180,41,0.1)", border: "rgba(240,180,41,0.3)", color: "#F0B429" },
+    sky: { bg: "rgba(79,142,247,0.1)", border: "rgba(79,142,247,0.3)", color: "#4F8EF7" },
+    white: { bg: "rgba(255,255,255,0.1)", border: "rgba(255,255,255,0.2)", color: "#EEF0F8" },
     ghost: { bg: "transparent", border: "rgba(255,255,255,0.1)", color: "#9CA3AF" },
   }[variant] || {};
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button onClick={onClick} disabled={disabled} className="mobile-btn" style={{
       background: v.bg, border: `1px solid ${v.border}`, color: v.color,
       padding: size === "xs" ? "3px 8px" : size === "sm" ? "6px 14px" : "9px 18px",
       borderRadius: 8, fontSize: size === "xs" ? "0.7rem" : size === "sm" ? "0.78rem" : "0.85rem",
@@ -216,6 +233,7 @@ export default function FaithConnect() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [initDone, setInitDone] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Real-time data state
   const [users, setUsers] = useState([]);
@@ -374,15 +392,75 @@ export default function FaithConnect() {
         ::-webkit-scrollbar-track{background:#111420}
         ::-webkit-scrollbar-thumb{background:#242840;border-radius:4px}
         select option{background:#242840;}
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .sidebar { transform: translateX(-100%); }
+          .sidebar.open { transform: translateX(0); }
+          .main-content { margin-left: 0 !important; padding: 16px 20px !important; }
+          .mobile-menu-btn { display: block !important; }
+          .grid-2-cols { grid-template-columns: 1fr !important; }
+          .grid-3-cols { grid-template-columns: 1fr !important; }
+          .grid-4-cols { grid-template-columns: repeat(2, 1fr) !important; }
+          .modal-mobile { width: 95% !important; max-width: none !important; padding: 20px !important; }
+          .mobile-text-sm { font-size: 0.75rem !important; }
+          .mobile-text-base { font-size: 0.875rem !important; }
+          .mobile-padding { padding: 12px !important; }
+          .mobile-margin { margin: 8px 0 !important; }
+          .mobile-gap { gap: 12px !important; }
+          .mobile-btn { padding: 10px 16px !important; font-size: 0.9rem !important; min-height: 44px !important; }
+        }
+        
+        @media (max-width: 480px) {
+          .grid-4-cols { grid-template-columns: 1fr !important; }
+          .modal-mobile { width: 98% !important; padding: 16px !important; }
+          .mobile-text-sm { font-size: 0.7rem !important; }
+          .mobile-text-base { font-size: 0.8rem !important; }
+        }
       `}</style>
 
+      {/* MOBILE MENU BUTTON */}
+      <button 
+        className="mobile-menu-btn"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        style={{ 
+          display: "none",
+          position: "fixed", 
+          top: 16, 
+          left: 16, 
+          zIndex: 100, 
+          background: "#111420", 
+          border: "1px solid rgba(240,180,41,0.2)", 
+          borderRadius: 8, 
+          color: "#F0B429", 
+          padding: "10px", 
+          cursor: "pointer",
+          fontSize: "1.2rem"
+        }}
+      >
+        {mobileMenuOpen ? "✕" : "☰"}
+      </button>
+
       {/* SIDEBAR */}
-      <aside style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 220, background: "#111420", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", zIndex: 50, padding: "20px 0" }}>
-        <div style={{ padding: "0 18px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
-          <img src="/faithconnect-logo.svg" alt="FaithConnect logo" style={{ width: 40, height: 40, borderRadius: 999, background: "#0A0C14" }} />
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`} style={{ 
+        position: "fixed", 
+        left: 0, 
+        top: 0, 
+        bottom: 0, 
+        width: 220, 
+        background: "#111420", 
+        borderRight: "1px solid rgba(240,180,41,0.2)", 
+        display: "flex", 
+        flexDirection: "column", 
+        zIndex: 50, 
+        padding: "20px 0",
+        transition: "transform 0.3s ease"
+      }}>
+        <div style={{ padding: "0 18px 20px", borderBottom: "1px solid rgba(240,180,41,0.2)", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/faithconnect-logo.svg" alt="FaithConnect logo" style={{ width: 40, height: 40, borderRadius: 999, background: "#111420" }} />
           <div>
             <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 800, color: "#F0B429" }}>FaithConnect</div>
-            <div style={{ fontSize: "0.68rem", color: "#6B7280", marginTop: 2 }}>FaithConnect Media Department</div>
+            <div style={{ fontSize: "0.68rem", color: "#9CA3AF", marginTop: 2 }}>FaithConnect Media Department</div>
           </div>
         </div>
         <nav style={{ flex: 1, overflowY: "auto" }}>
@@ -390,7 +468,7 @@ export default function FaithConnect() {
             <div key={item.id} onClick={() => setPage(item.id)} style={{
               display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", cursor: "pointer",
               fontSize: "0.84rem", fontWeight: 500, color: page === item.id ? "#F0B429" : "#9CA3AF",
-              background: page === item.id ? "rgba(240,180,41,0.07)" : "transparent",
+              background: page === item.id ? "rgba(240,180,41,0.08)" : "transparent",
               borderLeft: `3px solid ${page === item.id ? "#F0B429" : "transparent"}`, transition: "all 0.15s",
             }}>
               <span style={{ width: 18, textAlign: "center" }}>{item.icon}</span>
@@ -398,25 +476,25 @@ export default function FaithConnect() {
             </div>
           ))}
         </nav>
-        <div style={{ padding: "16px 18px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ padding: "16px 18px", borderTop: "1px solid rgba(240,180,41,0.2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <Avatar user={userProfile} size={32} />
             <div>
-              <div style={{ fontSize: "0.82rem", fontWeight: 600 }}>{userProfile.name?.split(" ")[0]}</div>
-              <div style={{ fontSize: "0.7rem", color: "#6B7280" }}>{userProfile.role === "admin" ? "Media Director" : userProfile.role}</div>
+              <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "#EEF0F8" }}>{userProfile.name?.split(" ")[0]}</div>
+              <div style={{ fontSize: "0.7rem", color: "#9CA3AF" }}>{userProfile.role === "admin" ? "Media Director" : userProfile.role}</div>
             </div>
             <div style={{ marginLeft: "auto", position: "relative", cursor: "pointer" }} onClick={() => setNotifOpen(!notifOpen)}>
               <span>🔔</span>
-              {unread > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#F05252", color: "#fff", borderRadius: "50%", width: 14, height: 14, fontSize: "0.6rem", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{unread}</span>}
+              {unread > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#F0B429", color: "#0A0C14", borderRadius: "50%", width: 14, height: 14, fontSize: "0.6rem", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{unread}</span>}
             </div>
           </div>
-          <button onClick={() => signOut(auth)} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "0.78rem", fontFamily: "inherit" }}>← Sign out</button>
+          <button onClick={() => signOut(auth)} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: "0.78rem", fontFamily: "inherit" }}>← Sign out</button>
         </div>
       </aside>
 
       {/* NOTIFICATIONS */}
       {notifOpen && (
-        <div style={{ position: "fixed", right: 20, bottom: 80, width: 300, background: "#181C2E", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 14, zIndex: 300, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", animation: "popIn 0.2s ease" }}>
+        <div style={{ position: "fixed", right: 20, bottom: 80, width: 300, background: "#1E2338", border: "1px solid rgba(240,180,41,0.2)", borderRadius: 14, zIndex: 300, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", animation: "popIn 0.2s ease" }}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: "0.9rem" }}>🔔 Notifications</span>
             <Btn size="xs" variant="ghost" onClick={async () => { for (const n of notifications.filter(x => !x.read)) await updateDoc(doc(db, COLS.notifications, n.id), { read: true }); }}>Mark all read</Btn>
@@ -434,8 +512,25 @@ export default function FaithConnect() {
         </div>
       )}
 
+      {/* MOBILE OVERLAY */}
+      {mobileMenuOpen && (
+        <div 
+          style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: "rgba(0,0,0,0.5)", 
+            zIndex: 40,
+            display: "block"
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* MAIN */}
-      <main style={{ marginLeft: 220, flex: 1, padding: "32px 36px", minHeight: "100vh", animation: "fadeUp 0.25s ease" }}>
+      <main className="main-content" style={{ marginLeft: 220, flex: 1, padding: "32px 36px", minHeight: "100vh", animation: "fadeUp 0.25s ease" }}>
         {page === "dashboard" && <DashboardPage state={state} user={userProfile} fns={fns} setPage={setPage} />}
         {page === "ideas" && <IdeasPage state={state} user={userProfile} fns={fns} />}
         {page === "tasks" && <TasksPage state={state} user={userProfile} fns={fns} isAdmin={isAdmin} />}
@@ -646,7 +741,7 @@ function DashboardPage({ state, user, fns, setPage }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
+      <div className="grid-4-cols" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
         {[
           { label: "My Active Tasks", val: myTasks.length, color: "#F0B429", icon: "📌" },
           { label: "Pending Approvals", val: ideas.filter(i => i.status === "pending").length, color: "#A78BFA", icon: "💡" },
@@ -676,7 +771,7 @@ function DashboardPage({ state, user, fns, setPage }) {
                   <Badge color={statusColor(t.status)}>{t.status}</Badge>
                 </div>
                 <ProgressBar value={t.progress || 0} />
-                <div style={{ fontSize: "0.71rem", color: "#6B7280", marginTop: 3 }}>{t.progress || 0}% · Due {t.due}</div>
+                <div style={{ fontSize: "0.71rem", color: "#9CA3AF", marginTop: 3 }}>{t.progress || 0}% · Due {t.due}</div>
               </div>
             ))}
         </div>
@@ -699,7 +794,7 @@ function DashboardPage({ state, user, fns, setPage }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div className="grid-2-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
         <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 700 }}>💡 Recent Ideas</h2>
@@ -712,7 +807,7 @@ function DashboardPage({ state, user, fns, setPage }) {
                 <Avatar user={author} size={26} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "0.84rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{idea.title}</div>
-                  <div style={{ fontSize: "0.71rem", color: "#6B7280" }}>{idea.service} · {idea.type}</div>
+                  <div style={{ fontSize: "0.71rem", color: "#9CA3AF" }}>{idea.service} · {idea.type}</div>
                 </div>
                 <Badge color={idea.status === "approved" ? "#3DD68C" : idea.status === "rejected" ? "#F05252" : "#F0B429"}>{idea.status}</Badge>
               </div>
@@ -1252,7 +1347,7 @@ function EquipmentPage({ state, user, fns, isAdmin }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
+      <div className="grid-4-cols" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.9rem", fontWeight: 800, color: s.color }}>{s.val}</div>
@@ -1261,7 +1356,7 @@ function EquipmentPage({ state, user, fns, isAdmin }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div className="grid-2-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
         <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22 }}>
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 700, marginBottom: 16 }}>All Equipment</h2>
           {[...new Set(equipment.map(e => e.cat))].map(cat => (
@@ -1292,9 +1387,9 @@ function EquipmentPage({ state, user, fns, isAdmin }) {
           {equipLog.length === 0
             ? <div style={{ textAlign: "center", padding: 30, color: "#6B7280", fontSize: "0.83rem" }}>No activity yet.</div>
             : equipLog.slice(0, 12).map(l => (
-              <div key={l.id} style={{ padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+              <div key={l.id} style={{ padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: "0.8rem", color: l.action === "out" ? "#FB923C" : l.action === "issue" ? "#F05252" : "#3DD68C", fontWeight: 600 }}>
+                  <span style={{ fontSize: "0.8rem", color: l.action === "out" ? "#F0B429" : l.action === "issue" ? "#F05252" : "#3DD68C", fontWeight: 600 }}>
                     {l.action === "out" ? "↑ Out" : l.action === "in" ? "↓ In" : "⚠ Issue"}
                   </span>
                   <span style={{ fontSize: "0.83rem", fontWeight: 500 }}>{l.equip}</span>
@@ -1401,7 +1496,7 @@ function PerformancePage({ state, user, fns }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
+      <div className="grid-4-cols" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
         {[
           { label: "Total Reach", val: `${(totalReach / 1000).toFixed(1)}K`, color: "#F0B429" },
           { label: "Avg Engagement", val: `${avgEng}%`, color: "#3DD68C" },
@@ -1415,7 +1510,7 @@ function PerformancePage({ state, user, fns }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
+      <div className="grid-2-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
         <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22 }}>
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 700, marginBottom: 18 }}>Platform Reach</h2>
           {platforms.map((pl, i) => {
@@ -1423,9 +1518,9 @@ function PerformancePage({ state, user, fns }) {
             return (
               <div key={pl} style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: 5 }}>
-                  <span>{pl}</span><span style={{ fontWeight: 600, color: platColors[i] }}>{reach.toLocaleString()}</span>
+                  <span style={{ color: "#FFFFFF" }}>{pl}</span><span style={{ fontWeight: 600, color: platColors[i] }}>{reach.toLocaleString()}</span>
                 </div>
-                <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 5, height: 8, overflow: "hidden" }}>
+                <div style={{ background: `rgba(135, 206, 235, 0.1)`, borderRadius: 5, height: 8, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${Math.round(reach / maxReach * 100)}%`, background: platColors[i], borderRadius: 5, transition: "width 0.6s ease" }} />
                 </div>
               </div>
@@ -1436,14 +1531,14 @@ function PerformancePage({ state, user, fns }) {
         <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22 }}>
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 700, marginBottom: 16 }}>🏆 Top Content</h2>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.83rem" }}>
-            <thead><tr>{["Post", "Platform", "Reach", "Eng%"].map(h => <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#6B7280", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Post", "Platform", "Reach", "Eng%"].map(h => <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#9CA3AF", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>{h}</th>)}</tr></thead>
             <tbody>
               {[...performance].sort((a, b) => (b.reach || 0) - (a.reach || 0)).slice(0, 5).map(p => (
-                <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <td style={{ padding: "9px 10px", fontWeight: 500, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</td>
                   <td style={{ padding: "9px 10px" }}><Badge color="#4F8EF7">{p.platform}</Badge></td>
                   <td style={{ padding: "9px 10px" }}>{(p.reach || 0).toLocaleString()}</td>
-                  <td style={{ padding: "9px 10px", color: "#3DD68C", fontWeight: 600 }}>{(((p.likes + p.shares + p.comments) / Math.max(p.reach, 1)) * 100).toFixed(1)}%</td>
+                  <td style={{ padding: "9px 10px", color: "#4F8EF7", fontWeight: 600 }}>{(((p.likes + p.shares + p.comments) / Math.max(p.reach, 1)) * 100).toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -1654,9 +1749,9 @@ function ContentHubPage({ state, user, fns }) {
             <div key={item.id} style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}
               onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(240,180,41,0.25)"}
               onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"}>
-              <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "#111420", fontSize: "3rem" }}>
+              <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "#1E2338", fontSize: "3rem" }}>
                 {item.type === 'text' ? (
-                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#9CA3AF" }}>
+                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#6B7280" }}>
                     {typeIcon(item.type)}
                     <div style={{ fontSize: "0.7rem", marginTop: 4 }}>Text Content</div>
                   </div>
@@ -1667,7 +1762,7 @@ function ContentHubPage({ state, user, fns }) {
                     <source src={item.fileData} type={item.fileType} />
                   </video>
                 ) : (
-                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#9CA3AF" }}>
+                  <div style={{ textAlign: "center", fontSize: "1rem", color: "#6B7280" }}>
                     {typeIcon(item.type)}
                     <div style={{ fontSize: "0.7rem", marginTop: 4 }}>{item.fileName?.split('.').pop().toUpperCase()}</div>
                   </div>
@@ -1679,8 +1774,8 @@ function ContentHubPage({ state, user, fns }) {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                   <Badge color="#4F8EF7">{item.type}</Badge>
                   <Badge color="#6B7280">{item.service}</Badge>
-                  <Badge color="#A78BFA">{item.platform}</Badge>
-                  {item.fileSize && <Badge color="#10B981">{(item.fileSize / 1024 / 1024).toFixed(1)}MB</Badge>}
+                  <Badge color="#F0B429">{item.platform}</Badge>
+                  {item.fileSize && <Badge color="#4F8EF7">{(item.fileSize / 1024 / 1024).toFixed(1)}MB</Badge>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.75rem", color: "#9CA3AF", marginBottom: 10 }}>
                   <span>{item.uploadedByName} · {item.uploadedAt}</span>
@@ -1820,13 +1915,13 @@ function AdminPage({ state, user, fns }) {
           </div>
           <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
-              <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                {["Member", "Email", "Role", "Tasks", "Ideas", "Joined"].map(h => <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: "#6B7280", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>)}
+              <thead><tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                {["Member", "Email", "Role", "Tasks", "Ideas", "Joined"].map(h => <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: "#9CA3AF", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {users.filter(u => u.role !== "admin").map(u => (
-                  <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.015)"}
+                  <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     <td style={{ padding: "12px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><Avatar user={u} size={30} />{u.name}</div></td>
                     <td style={{ padding: "12px 16px", color: "#9CA3AF", fontSize: "0.8rem" }}>{u.email}</td>
@@ -1911,9 +2006,9 @@ function AdminPage({ state, user, fns }) {
             <div style={{ background: "#1E2338", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 22 }}>
               <h2 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1rem", fontWeight: 700, marginBottom: 14 }}>Recent Notifications</h2>
               {notifications.slice(0, 8).map(n => (
-                <div key={n.id} style={{ padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", fontSize: "0.82rem" }}>
+                <div key={n.id} style={{ padding: "7px 0", borderBottom: `1px solid rgba(255,255,255,0.06)`, fontSize: "0.82rem" }}>
                   <div style={{ fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
-                  <div style={{ fontSize: "0.7rem", color: "#6B7280", marginTop: 2 }}>{n.at}</div>
+                  <div style={{ fontSize: "0.7rem", color: "#9CA3AF", marginTop: 2 }}>{n.at}</div>
                 </div>
               ))}
             </div>
