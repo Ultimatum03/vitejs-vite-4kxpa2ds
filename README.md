@@ -1,53 +1,84 @@
-# React + TypeScript + Vite
+# GacAdigbeMedia - Church Media Department System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A production-ready church media management system built with React, TypeScript, Vite, and Firebase.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 🎥 **Content Ideas Management** - Submit, score, and track content ideas with AI assistance
+- 📌 **Task Board** - Real-time task tracking for the whole team
+- ✅ **Checklists** - Sunday and midweek service preparation checklists
+- 🎛️ **Equipment Management** - Track equipment, conditions, and checkout logs
+- 📊 **Performance Analytics** - Monitor social media performance
+- 🤖 **AI-Powered Features** - AI caption generation, idea suggestions, and content scoring
+- 🔐 **Firebase Authentication** - Secure team account management
+- 📱 **Real-time Updates** - Live Firestore listeners for instant data sync
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
 
-## Expanding the ESLint configuration
+- Node.js 16+
+- A Firebase project (already configured in code)
+- An Anthropic API key (for AI features)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. Install dependencies:
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. **Set up your Anthropic API key** for AI features (optional but recommended):
+   - Get an API key from [Anthropic Console](https://console.anthropic.com/)
+   - Create a `.env.local` file in the project root:
+   ```
+   VITE_ANTHROPIC_KEY=your_anthropic_api_key_here
+   ```
+   - See `.env.example` for reference
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
+3. Start the development server:
+```bash
+npm run dev
+```
+
+### First Time Setup
+
+When you first log in:
+1. Click "Create admin account" on the login page
+2. Create your account with your email and password
+3. Add team members later from the Admin panel
+
+## AI Features
+
+The following features require a valid `VITE_ANTHROPIC_KEY`:
+
+- **AI Suggest** - Generate 4 content ideas from a sermon theme
+- **AI Caption Generator** - Create social media captions with hashtags and CTAs
+- **AI Idea Scoring** - Automatic AI scoring when submitting ideas
+
+If you don't have an API key, the app will still work, but AI features will be disabled.
+
+## Development
+
+```bash
+npm run dev      # Start dev server
+npm run build    # Build for production
+npm run lint     # Run ESLint
+npm run preview  # Preview production build
+```
+
+## Tech Stack
+
+- **Frontend**: React 19, TypeScript, Vite
+- **Backend**: Firebase (Auth, Firestore)
+- **AI**: Anthropic Claude API
+- **Styling**: Inline CSS with custom design system
+- **Fonts**: Syne, Instrument Sans (Google Fonts)
+
+---
+
+**GacAdigbeMedia** - Making church media management simple and powerful.
+
 import reactDom from 'eslint-plugin-react-dom'
 
 export default defineConfig([

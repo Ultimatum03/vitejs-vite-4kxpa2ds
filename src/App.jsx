@@ -30,9 +30,15 @@ const db = getFirestore(app);
 
 // ── AI Backend ──
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
+if (import.meta.env.DEV) {
+  console.log("VITE_ANTHROPIC_KEY present?", !!import.meta.env.VITE_ANTHROPIC_KEY);
+}
 const ai = {
   call: async (system, message, parseJSON = true) => {
-    if (!ANTHROPIC_KEY) { console.warn("No API key"); return null; }
+    if (!ANTHROPIC_KEY) {
+      console.warn("⚠️ No Anthropic API key configured. Set VITE_ANTHROPIC_KEY in .env.local");
+      return null;
+    }
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -43,15 +49,26 @@ const ai = {
           "anthropic-dangerous-allow-browser": "true",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
+          model: "claude-3-5-sonnet-20241022", max_tokens: 1000,
           system, messages: [{ role: "user", content: message }]
         })
       });
+      if (!res.ok) {
+        console.error("API Error:", res.status, res.statusText);
+        return null;
+      }
       const data = await res.json();
+      if (data.error) {
+        console.error("AI Error:", data.error);
+        return null;
+      }
       const text = data.content?.map(b => b.text || "").join("") || "";
       if (!parseJSON) return text;
       return JSON.parse(text.replace(/```json|```/g, "").trim());
-    } catch (e) { console.error("AI error:", e); return null; }
+    } catch (e) {
+      console.error("AI call error:", e.message);
+      return null;
+    }
   },
   suggestIdeas: (theme, service) => ai.call(
     "You are a creative church media strategist. Return ONLY valid JSON array, no markdown.",
@@ -83,15 +100,7 @@ const statusColor = s => ({ "Done": "#3DD68C", "In Progress": "#4F8EF7", "Not St
 const condColor = c => ({ "Good": "#3DD68C", "Fair": "#F0B429", "Needs Repair": "#F05252" }[c] || "#6B7280");
 
 // ── Default team accounts (auto-created on first run) ──
-const DEFAULT_USERS = [
-  { name: "Director Admin", email: "admin@gacadigbe.church", password: "admin123", role: "admin", avatar: "#F0B429" },
-  { name: "Amara Osei", email: "amara@gacadigbe.church", password: "pass123", role: "Graphic Designer", avatar: "#4F8EF7" },
-  { name: "Kofi Mensah", email: "kofi@gacadigbe.church", password: "pass123", role: "Video Editor", avatar: "#3DD68C" },
-  { name: "Grace Acheampong", email: "grace@gacadigbe.church", password: "pass123", role: "Photographer", avatar: "#A78BFA" },
-  { name: "David Asante", email: "david@gacadigbe.church", password: "pass123", role: "Slide Operator", avatar: "#FB923C" },
-  { name: "Blessing Nkrumah", email: "blessing@gacadigbe.church", password: "pass123", role: "Social Media Manager", avatar: "#F05252" },
-  { name: "Esther Darko", email: "esther@gacadigbe.church", password: "pass123", role: "Copywriter", avatar: "#34D399" },
-];
+// Admin account created during first setup
 
 // ── Firestore collections ──
 const COLS = {
@@ -447,8 +456,23 @@ function LoginPage({ auth, db, toast }) {
   const [setupMode, setSetupMode] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
 
+  // Blocklist of old hardcoded accounts
+  const blockedEmails = [
+    "admin@gacadigbe.church",
+    "amara@gacadigbe.church",
+    "kofi@gacadigbe.church",
+    "grace@gacadigbe.church",
+    "david@gacadigbe.church",
+    "blessing@gacadigbe.church",
+    "esther@gacadigbe.church"
+  ];
+
   const login = async () => {
     if (!email || !pass) { setErr("Please enter email and password."); return; }
+    if (blockedEmails.includes(email.toLowerCase())) {
+      setErr("This account is not available. Please use your own admin account.");
+      return;
+    }
     setLoading(true); setErr("");
     try {
       await signInWithEmailAndPassword(auth, email, pass);
@@ -458,18 +482,44 @@ function LoginPage({ auth, db, toast }) {
     }
   };
 
-  const setupAccounts = async () => {
-    setSetupLoading(true);
-    for (const u of DEFAULT_USERS) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, u.email, u.password);
-        await setDoc(doc(db, COLS.users, cred.user.uid), { name: u.name, email: u.email, role: u.role, avatar: u.avatar, joined: today() });
-        await signOut(auth);
-      } catch (e) { /* already exists */ }
+  const [setupForm, setSetupForm] = useState({ name: "", email: "", password: "", passwordConfirm: "" });
+
+  const createAdminAccount = async () => {
+    if (!setupForm.name || !setupForm.email || !setupForm.password) {
+      setErr("Please fill in all fields.");
+      return;
     }
-    setSetupLoading(false);
-    setSetupMode(false);
-    setErr("✅ All accounts created! You can now log in.");
+    if (blockedEmails.includes(setupForm.email.toLowerCase())) {
+      setErr("This email is reserved. Please use a different email address.");
+      return;
+    }
+    if (setupForm.password !== setupForm.passwordConfirm) {
+      setErr("Passwords do not match.");
+      return;
+    }
+    if (setupForm.password.length < 6) {
+      setErr("Password must be at least 6 characters.");
+      return;
+    }
+    setSetupLoading(true);
+    setErr("");
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, setupForm.email, setupForm.password);
+      await setDoc(doc(db, COLS.users, cred.user.uid), {
+        name: setupForm.name,
+        email: setupForm.email,
+        role: "admin",
+        avatar: "#F0B429",
+        joined: today()
+      });
+      setSetupLoading(false);
+      setSetupMode(false);
+      setSetupForm({ name: "", email: "", password: "", passwordConfirm: "" });
+      setErr("✅ Admin account created! You can now log in.");
+    } catch (e) {
+      setErr(e.message.includes("email-already-in-use") ? "Email already registered." : e.message);
+      setSetupLoading(false);
+    }
   };
 
   return (
@@ -495,22 +545,32 @@ function LoginPage({ auth, db, toast }) {
             </button>
             {err && <div style={{ color: err.startsWith("✅") ? "#3DD68C" : "#F05252", fontSize: "0.8rem", marginTop: 10 }}>{err}</div>}
             <div style={{ marginTop: 24, padding: 14, background: "rgba(255,255,255,0.03)", borderRadius: 10, fontSize: "0.72rem", color: "#6B7280", lineHeight: 1.9 }}>
-              <strong style={{ color: "#9CA3AF" }}>First time?</strong> Click below to create all team accounts.<br />
-              <button onClick={() => setSetupMode(true)} style={{ background: "none", border: "none", color: "#F0B429", cursor: "pointer", fontSize: "0.78rem", marginTop: 6, fontFamily: "inherit", textDecoration: "underline" }}>Set up team accounts →</button>
-            </div>
-            <div style={{ marginTop: 12, fontSize: "0.7rem", color: "#6B7280", lineHeight: 1.8 }}>
-              <strong style={{ color: "#9CA3AF" }}>Team emails:</strong><br />
-              admin@gacadigbe.church / admin123<br />
-              amara@gacadigbe.church / pass123<br />
-              kofi@gacadigbe.church / pass123<br />
-              + more
+              <strong style={{ color: "#9CA3AF" }}>First time?</strong> Click below to create your admin account.<br />
+              <button onClick={() => setSetupMode(true)} style={{ background: "none", border: "none", color: "#F0B429", cursor: "pointer", fontSize: "0.78rem", marginTop: 6, fontFamily: "inherit", textDecoration: "underline" }}>Create admin account →</button>
             </div>
           </>
         ) : (
           <div>
-            <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginBottom: 20, lineHeight: 1.6 }}>This will create accounts for all 7 team members in Firebase. Only do this once!</p>
-            <Btn onClick={setupAccounts} disabled={setupLoading} style={{ width: "100%", justifyContent: "center" }}>{setupLoading ? "Creating accounts…" : "Create All Team Accounts"}</Btn>
-            <button onClick={() => setSetupMode(false)} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "0.8rem", marginTop: 14, fontFamily: "inherit" }}>← Back to login</button>
+            <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginBottom: 20, lineHeight: 1.6 }}>Create your admin account. You can add team members later from the Admin panel.</p>
+            <div style={{ textAlign: "left", marginBottom: 14 }}>
+              <label style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9CA3AF", display: "block", marginBottom: 5 }}>Your Name</label>
+              <Input type="text" placeholder="e.g. John Doe" value={setupForm.name} onChange={e => setSetupForm({ ...setupForm, name: e.target.value })} />
+            </div>
+            <div style={{ textAlign: "left", marginBottom: 14 }}>
+              <label style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9CA3AF", display: "block", marginBottom: 5 }}>Email</label>
+              <Input type="email" placeholder="admin@example.com" value={setupForm.email} onChange={e => setSetupForm({ ...setupForm, email: e.target.value })} />
+            </div>
+            <div style={{ textAlign: "left", marginBottom: 14 }}>
+              <label style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9CA3AF", display: "block", marginBottom: 5 }}>Password</label>
+              <Input type="password" placeholder="At least 6 characters" value={setupForm.password} onChange={e => setSetupForm({ ...setupForm, password: e.target.value })} />
+            </div>
+            <div style={{ textAlign: "left", marginBottom: 14 }}>
+              <label style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9CA3AF", display: "block", marginBottom: 5 }}>Confirm Password</label>
+              <Input type="password" placeholder="Confirm your password" value={setupForm.passwordConfirm} onChange={e => setSetupForm({ ...setupForm, passwordConfirm: e.target.value })} />
+            </div>
+            {err && <div style={{ color: err.startsWith("✅") ? "#3DD68C" : "#F05252", fontSize: "0.8rem", marginBottom: 14 }}>{err}</div>}
+            <Btn onClick={createAdminAccount} disabled={setupLoading} style={{ width: "100%", justifyContent: "center" }}>{setupLoading ? "Creating account…" : "Create Admin Account"}</Btn>
+            <button onClick={() => { setSetupMode(false); setSetupForm({ name: "", email: "", password: "", passwordConfirm: "" }); setErr(""); }} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer", fontSize: "0.8rem", marginTop: 14, fontFamily: "inherit" }}>← Back to login</button>
           </div>
         )}
       </div>
@@ -692,6 +752,7 @@ function IdeasPage({ state, user, fns }) {
   const [form, setForm] = useState({ title: "", service: "Sunday", type: "Video / Reel", platform: "Instagram", desc: "", day: "Sunday" });
   const { ai, toast, setLoad, loading, db, addNotification } = fns;
   const isAdmin = user.role === "admin";
+  const hasApiKey = import.meta.env.VITE_ANTHROPIC_KEY ? true : false;
 
   const filtered = state.ideas.filter(i => {
     if (filter === "mine") return i.by === user.id;
@@ -719,13 +780,17 @@ function IdeasPage({ state, user, fns }) {
         submittedAt: today(),
       });
       await addNotification(`New idea submitted: "${form.title}" by ${user.name}`, "idea");
+      if (!score) {
+        toast("Idea submitted! (AI scoring unavailable)", "success");
+      } else {
+        toast("Idea submitted! AI scored it.");
+      }
     } catch(e) {
       console.error("Idea error:", e);
       toast("Error: " + e.message, "error");
       return;
     }
     setModal(false); setForm({ title: "", service: "Sunday", type: "Video / Reel", platform: "Instagram", desc: "", day: "Sunday" });
-    toast("Idea submitted! AI scored it.");
   };
 
   const approveIdea = async (idea) => {
@@ -735,9 +800,19 @@ function IdeasPage({ state, user, fns }) {
   };
 
   const generateCaption = async (idea) => {
+    if (!hasApiKey) {
+      toast("AI feature not configured. Set VITE_ANTHROPIC_KEY in .env.local", "error");
+      return;
+    }
     setCaptionModal(idea); setCaptionResult(null);
     setLoad("caption", true);
     const result = await ai.generateCaption(idea, captionTone);
+    if (!result) {
+      toast("Failed to generate caption. Check your API configuration.", "error");
+      setCaptionModal(null);
+      setLoad("caption", false);
+      return;
+    }
     setCaptionResult(result);
     setLoad("caption", false);
   };
@@ -746,7 +821,17 @@ function IdeasPage({ state, user, fns }) {
     if (!sermonTheme) { toast("Enter a sermon theme.", "error"); return; }
     setLoad("suggest", true);
     const ideas = await ai.suggestIdeas(sermonTheme, "Sunday");
-    setSuggestedIdeas(ideas || []);
+    if (!ideas) {
+      toast("AI feature unavailable. Check your API key configuration.", "error");
+      setLoad("suggest", false);
+      return;
+    }
+    if (!Array.isArray(ideas)) {
+      toast("Invalid response from AI. Please try again.", "error");
+      setLoad("suggest", false);
+      return;
+    }
+    setSuggestedIdeas(ideas);
     setLoad("suggest", false);
   };
 
@@ -758,10 +843,15 @@ function IdeasPage({ state, user, fns }) {
           <p style={{ color: "#9CA3AF", fontSize: "0.85rem", marginTop: 4 }}>Submit, score and track all content ideas. Updates live for the whole team.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="blue" onClick={() => setSuggestModal(true)}>✦ AI Suggest</Btn>
+          <Btn variant="blue" onClick={() => setSuggestModal(true)} disabled={!hasApiKey} title={!hasApiKey ? "Set VITE_ANTHROPIC_KEY in .env.local" : ""}>✦ AI Suggest</Btn>
           <Btn onClick={() => setModal(true)}>+ Submit Idea</Btn>
         </div>
       </div>
+      {!hasApiKey && (
+        <div style={{ background: "rgba(240,115,50,0.1)", border: "1px solid rgba(240,115,50,0.3)", borderRadius: 10, padding: 14, marginBottom: 20, fontSize: "0.84rem", color: "#FB923C" }}>
+          <strong>⚠️ AI features unavailable:</strong> Add your Anthropic API key to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>.env.local</code> to enable AI features. <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#FB923C" }}>Get API key →</a>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 2, marginBottom: 20, background: "#1E2338", borderRadius: 10, padding: 4, width: "fit-content" }}>
         {["all", "pending", "approved", "rejected", "mine"].map(f => (
@@ -830,22 +920,31 @@ function IdeasPage({ state, user, fns }) {
 
       {/* AI Suggest Modal */}
       <Modal open={suggestModal} onClose={() => setSuggestModal(false)} title="✦ AI Idea Generator">
-        <Field label="Sermon / Study Theme" full><Input value={sermonTheme} onChange={e => setSermonTheme(e.target.value)} placeholder="e.g. Walking by Faith, The Power of Prayer…" /></Field>
-        <div style={{ marginTop: 14 }}><Btn onClick={suggestIdeasAI} disabled={loading.suggest}>{loading.suggest ? "✦ Generating…" : "Generate 4 Ideas"}</Btn></div>
-        {suggestedIdeas.map((idea, i) => (
-          <div key={i} style={{ background: "#242840", borderRadius: 10, padding: 14, marginTop: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{idea.title}</div>
-            <div style={{ fontSize: "0.8rem", color: "#9CA3AF", marginBottom: 8 }}>{idea.desc}</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-              <Badge color="#4F8EF7">{idea.type}</Badge><Badge color="#A78BFA">{idea.platform}</Badge>
-            </div>
-            {idea.hook && <div style={{ fontSize: "0.77rem", color: "#3DD68C", marginBottom: 8 }}>💡 {idea.hook}</div>}
-            <Btn size="xs" variant="green" onClick={async () => {
-              await addDoc(collection(db, COLS.ideas), { ...idea, service: "Sunday", by: user.id, byName: user.name, status: "pending", score: null, submittedAt: today(), createdAt: serverTimestamp() });
-              toast("Idea added!");
-            }}>+ Add to Ideas</Btn>
+        {!hasApiKey && (
+          <div style={{ background: "rgba(240,115,50,0.1)", border: "1px solid rgba(240,115,50,0.3)", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: "0.83rem", color: "#FB923C" }}>
+            ⚠️ AI feature not configured. Add <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>VITE_ANTHROPIC_KEY</code> to <code style={{ background: "rgba(0,0,0,0.2)", padding: "2px 4px", borderRadius: 3, fontFamily: "monospace" }}>.env.local</code>
           </div>
-        ))}
+        )}
+        <Field label="Sermon / Study Theme" full><Input value={sermonTheme} onChange={e => setSermonTheme(e.target.value)} placeholder="e.g. Walking by Faith, The Power of Prayer…" disabled={!hasApiKey} /></Field>
+        <div style={{ marginTop: 14 }}><Btn onClick={suggestIdeasAI} disabled={loading.suggest || !hasApiKey}>{loading.suggest ? "✦ Generating…" : "Generate 4 Ideas"}</Btn></div>
+        {suggestedIdeas.length === 0 && !loading.suggest ? (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#6B7280", fontSize: "0.83rem" }}>💡 Enter a theme and generate ideas</div>
+        ) : (
+          suggestedIdeas.map((idea, i) => (
+            <div key={i} style={{ background: "#242840", borderRadius: 10, padding: 14, marginTop: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 4 }}>{idea.title}</div>
+              <div style={{ fontSize: "0.8rem", color: "#9CA3AF", marginBottom: 8 }}>{idea.desc}</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                <Badge color="#4F8EF7">{idea.type}</Badge><Badge color="#A78BFA">{idea.platform}</Badge>
+              </div>
+              {idea.hook && <div style={{ fontSize: "0.77rem", color: "#3DD68C", marginBottom: 8 }}>💡 {idea.hook}</div>}
+              <Btn size="xs" variant="green" onClick={async () => {
+                await addDoc(collection(db, COLS.ideas), { ...idea, service: "Sunday", by: user.id, byName: user.name, status: "pending", score: null, submittedAt: today(), createdAt: serverTimestamp() });
+                toast("Idea added!");
+              }}>+ Add to Ideas</Btn>
+            </div>
+          ))
+        )}
       </Modal>
 
       {/* Caption Modal */}
@@ -1622,8 +1721,8 @@ function AdminPage({ state, user, fns }) {
 
       <Modal open={modal} onClose={() => setModal(false)} title="👤 Add Team Member">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          <Field label="Full Name"><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Amara Osei" /></Field>
-          <Field label="Email"><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="amara@gacadigbe.church" /></Field>
+          <Field label="Full Name"><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Team member name" /></Field>
+          <Field label="Email"><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="member@church.org" /></Field>
           <Field label="Password"><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Temporary password" /></Field>
           <Field label="Role"><Select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}><option>Graphic Designer</option><option>Video Editor</option><option>Photographer</option><option>Slide Operator</option><option>Social Media Manager</option><option>Copywriter</option></Select></Field>
           <Field label="Avatar Color" full>
